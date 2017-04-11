@@ -24,8 +24,15 @@
 	<body>
 		<div class="reveal">
 			<div class="slides">
-				<section>Slide 1</section>
+                <section data-markdown="slides.md"
+                         data-separator="^\n--\n"
+                         data-separator-vertical="^\n\n"
+                         data-separator-notes="^Note:"
+                         data-charset="utf-8">
+                 </section>
+                 <section>Slide 1</section>
 				<section>Slide 2</section>
+                <section>Slide 3</section>
 			</div>
 		</div>
 
@@ -36,6 +43,8 @@
 			// More info https://github.com/hakimel/reveal.js#configuration
 			Reveal.initialize({
 				history: true,
+                progress: false,
+                slideNumber: true,
 
 				// More info https://github.com/hakimel/reveal.js#dependencies
 				dependencies: [
@@ -46,5 +55,63 @@
 				]
 			});
 		</script>
+<style type="text/css">
+    /* 1. Style header/footer <div> so they are positioned as desired. */
+    #header-left {
+        position: absolute;
+        top: 0%;
+        left: 0%;
+    }
+    #header-right {
+        position: absolute;
+        top: 0%;
+        right: 0%;
+    }
+    #header-left-logo {
+        position: absolute;
+        top: 0%;
+        left: 0%;
+        width:20%;
+        height: auto;
+    }
+    #footer-left {
+        position: absolute;
+        bottom: 0%;
+        left: 0%;
+    }
+    #footer-center {
+        position: absolute;
+        bottom: 0%;
+        right: 50%;
+        left: 50%;
+        font-size: x-small;
+    }
+</style>
+
+<!-- 2. Create hidden header/footer <div> -->
+<div id="hidden" style="display:none;">
+    <div id="header">
+        <div id="header-left-logo">
+            <img src="test.png"/>   
+        </div>
+        <div id="header-right">HEADER-RIGHT</div>
+        <div id="footer-left">FOOTER-LEFT</div>
+        <div id="footer-center">FOOTER-CENTER</div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+<script type="text/javascript">
+    // 3. On Reveal.js ready event, copy header/footer <div> into each `.slide-background` <div>
+    var header = $('#header').html();
+    if ( window.location.search.match( /print-pdf/gi ) ) {
+        Reveal.addEventListener( 'ready', function( event ) {
+            $('.slide-background').append(header);
+        });
+    }
+    else {
+        $('div.reveal').append(header);
+   }
+</script>
 	</body>
 </html>
