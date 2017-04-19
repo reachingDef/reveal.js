@@ -1,74 +1,92 @@
-## TLS for protecting resource-constrained systems
-Yannic Ahrens
-
---
-
 Outline
+1. Motivation & Hypothesis
+2. TLS protocol background
+3. TLS library
+4. Instrumentation
+5. Experiment(s)
+6. Results
+7. Constraints / drawbacks
+8. Outlook
 
 --
 
-Hypothesis: TLS is suited for the protection of resource-constrained systems
-Aufbau: mit IOT bullshit motivieren, dann grob die Methodik der Arbeit skizzieren (latency, constrained),
-anschließend schritt für schritt ins detail gehen
+IOT
+* huge number of
+* resource constrained devices
+* connected to each other
+* bonus: real time requirements
 
 --
 
-metrics (1) 10.000m view:
+Question: What about sensitive data? / How to protect the communication?
+
+--
+
+Hypothesis: TLS is suited for the protection of resource-constrained realtime  systems
+
+--
+
+Why (not) TLS?
+*  well known protocol
+*  many implementations
+*  considered to be slow <!-- .element: class="fragment" data-fragment-index="1" -->
+*  and resource hungry <!-- .element: class="fragment" data-fragment-index="1" -->
+
+--
+
+objectives:
+* resource constrained = limited RAM, persistent storage and computational capacity
 * real time = fixed (and low!) latency
-* resource constrained = limited RAM and persistent storage
 
 --
 
-metrics (2) 10.000m view:
-we can derive the two objectives:
-* RT: minimize additional time when TLS is involved in the communication (security??)
-* contrained: needs to run on target platform (constrained by hardware and OS environment)
-
---
-
-relevant aspects from user perspective
-* handshake
-* payload exchange
+latency
+* roughly: time between call of TLS library function until system IO function is reached
+* channel establishment<!-- .element: class="fragment" data-fragment-index="1" -->
+* exchange of user data  <!-- .element: class="fragment" data-fragment-index="1" -->
 
 --
 
 Verification in two steps:
-1. development of a test bench
-2. evaluation of TLS on selected target platforms
+1. development of a test bench <!-- .element: class="fragment" data-fragment-index="1" -->
+2. evaluation of TLS on selected target platforms <!-- .element: class="fragment" data-fragment-index="2" -->
 
 --
 
-Background:
-* TLS works upon transport layer
-* relevant sub protocols: Handshake & record layer protocol
+Brief background on TLS
 
 --
 
-client initiates connection through ClientHello, sends list of supported cipher suites
-server picks one cipher suite, responds
-authentication through certificate or pre-shared secret
-depending on authentication method, key exchange method varies
+<img  width="800"; height="auto"; src="images/tls_layers.svg"/>
+* relevant sub protocols: Handshake & record layer protocol 
 
 --
 
-Cipher suites are a fixed combination of mechanisms:
-- authentication
-- key exchange
-- hashing
-- bulk cipher
+<img height="600"; width="auto"; src="images/SSL_handshake.png"/>
+
+--
+
+<img src="images/MS_CS_dissection.png"/>
 
 --
 
 Why is choice of cipher suite so important?
 * one of the very few dynamic components
 * cryptographic operations dominate the runtime
+* test all cipher suite for influence on latency
 
 --
 
-What did I do?
-* picked a TLS library and instrumented the implementation
-* use a very simple experiment setup
-* test all cipher suites for their influence on latency
+# test bench
+1. tls implementation
+2. instrumentation
+3. (now that we have the data..) comm protocol
+4. software architecture (components)
+5. correctness
+
+--
+
+TLS implementation
 
 --
 
@@ -87,6 +105,10 @@ structure of mbed
 
 --
 
+Instrumentation
+
+--
+
 How to instrument?
 * callgrind: excellent tool, just too heavy
 * gprof: had a lot of quirks, also not sure if available on target platforms
@@ -95,7 +117,6 @@ How to instrument?
 
 --
 
-Instrumentation
 * small library linked to target code
 * manual insertion of log points into the code
 * relies on clock gettime call
@@ -127,8 +148,8 @@ Logging labels
 --
 
 Log trees
+<img src="images/entries_to_tree.png"/>
 * nested log points form a log tree
-* <insert graphic!>
 * similar to matching many different parenthesises
 
 --
@@ -141,6 +162,18 @@ Procedure (Instrumentation)
 * controller.py then told which experiment to run, initiates experiments
 * bench processes run experiments (repeatedly!); are eventually queried by controller.py
 * controller stores logs into database for further analysis
+
+--
+
+<img src="images/ProtoInitial.png"/>
+
+--
+
+<img src="images/ProtoNormal.png"/>
+
+--
+
+<img src="images/ProtoBufferFull.png"/>
 
 --
 
@@ -225,6 +258,70 @@ already measured logs can be processed. Also, an "open end" scenario is thinkabl
 
 --
 
+# Evaluation
+1. results
+2. overhead 
+3. drawbacks
+
+--
+
+results
+* server vs. client (handshake, payload)
+* handshake vs payload
+* type ratio
+* hash vs sym
+* stacked bar handshake proto steps
+* density & histograms
+* correlation time and packet no.
+
+--
+
+Overview of all cipher suites
+* board perspective
+* coloured by symmetric bulk cipher / key exchange method
+
+--
+
+<img src="images/w_ov_by_keychg.svg"/>
+
+--
+
+<img src="images/w_ov_by_sym.svg"/>
+
+--
+
+<img src="images/r_ov_by_keychg.svg"/>
+
+--
+
+<img src="images/r_ov_by_sym.svg"/>
+
+--
+
+Showing the single protocol step of a handshake for a single cipher suite
+
+--
+
+<img src="images/49320-stacked_COMPLETE_HANDSHAKE_Board_exc_io.svg"/>
+
+--
+
+<img src="images/stacked_COMPLETE_HANDSHAKE_Board_exc_io.svg"/>
+
+--
+
+Overview of the internals during a handshake (cipher suite: 147)
+
+--
+
+<img src="images/groupby_COMPLETE_HANDSHAKE_Board_exc_io_147.svg"/>
+
+--
+
+<img src="images/groupby_COMPLETE_HANDSHAKE_Board_inc_io_147.svg"/>
+
+--
+
 performance impact
 * measured on two levels
 * micro: run two crypto functions (slow, fast) with different forms of logging
@@ -262,19 +359,6 @@ overhead sym, pc as server, pc side
 overhead sym, pc as server, board side
 <img src="images/global_difference_write_latencies_by_sym_PC_AS_SERVER.svg"/>
 
---
-
-results
-* server vs. client (handshake, payload)
-* handshake vs payload
-* type ratio
-* hash vs sym
-* stacked bar handshake proto steps
-* density & histograms
-* correlation time and packet no.
-
---
-
 verification
 * measure overhead (micro & macro scale)
 * dependency of proto steps on cipher suite
@@ -303,3 +387,11 @@ portability and flexibility:
 
 --
 
+the communication protocol
+
+--
+
+
+--
+
+<img src="images/components.png"/>
