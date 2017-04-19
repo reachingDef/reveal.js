@@ -7,7 +7,7 @@
 		<title>reveal.js</title>
 
 		<link rel="stylesheet" href="css/reveal.css">
-		<link rel="stylesheet" href="css/theme/black.css">
+		<link rel="stylesheet" href="css/theme/sky.css">
 
 		<!-- Theme used for syntax highlighting of code -->
 		<link rel="stylesheet" href="lib/css/zenburn.css">
@@ -24,14 +24,18 @@
 	<body>
 		<div class="reveal">
 			<div class="slides">
+                <section data-markdown>
+                    <script type="text/template">
+                        ## TLS for protecting low-resource realtime systems
+                        Yannic Ahrens
+                    </script>
+                </section>
                 <section data-markdown="slides.md"
                          data-separator="^\n--\n"
                          data-separator-vertical="^\n\n"
                          data-separator-notes="^Note:"
                          data-charset="utf-8">
                  </section>
-                 <section>Slide 1</section>
-				<section>Slide 2</section>
                 <section>Slide 3</section>
 			</div>
 		</div>
@@ -43,8 +47,9 @@
 			// More info https://github.com/hakimel/reveal.js#configuration
 			Reveal.initialize({
 				history: true,
-                progress: false,
+                progress: true,
                 slideNumber: true,
+                controls: true,
 
 				// More info https://github.com/hakimel/reveal.js#dependencies
 				dependencies: [
@@ -69,22 +74,23 @@
     }
     #header-left-logo {
         position: absolute;
-        top: 0%;
-        left: 0%;
+        top: 5%;
+        left: 3%;
         width:20%;
         height: auto;
     }
     #footer-left {
         position: absolute;
-        bottom: 0%;
-        left: 0%;
+        bottom: 1%;
+        left: 2%;
+        font-size: medium;
     }
     #footer-center {
         position: absolute;
-        bottom: 0%;
+        bottom: 1%;
         right: 50%;
         left: 50%;
-        font-size: x-small;
+        font-size: medium;
     }
 </style>
 
@@ -92,11 +98,10 @@
 <div id="hidden" style="display:none;">
     <div id="header">
         <div id="header-left-logo">
-            <img src="test.png"/>   
+            <img src="logos/logo_blau.svg"/>   
         </div>
-        <div id="header-right">HEADER-RIGHT</div>
-        <div id="footer-left">FOOTER-LEFT</div>
-        <div id="footer-center">FOOTER-CENTER</div>
+        <div id="footer-left">25.04.2017</div>
+        <div id="footer-center">Student Thesis Defense</div>
     </div>
 </div>
 
