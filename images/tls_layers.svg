@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg width="279.66mm" height="118.64mm" version="1.1" viewBox="0 0 279.66275 118.64491" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <metadata>
+  <rdf:RDF>
+   <cc:Work rdf:about="">
+    <dc:format>image/svg+xml</dc:format>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title/>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <g transform="translate(124.33 -87.243)">
+  <rect x="-123.83" y="87.743" width="278.66" height="117.64" fill-opacity="0" stroke="#000"/>
+  <g transform="translate(-5.2917)">
+   <g transform="translate(96.384)">
+    <text x="-104.73705" y="120.27288" fill="#000000" font-family="Sans" font-size="10.583px" letter-spacing="0px" word-spacing="0px" style="line-height:6.61458302px" xml:space="preserve"><tspan x="-104.73705" y="120.27288">Alert</tspan></text>
+   </g>
+   <rect x="-16.631" y="103.85" width="41.577" height="24.946" fill-opacity="0" stroke="#000"/>
+  </g>
+  <g transform="translate(-2.2679 -1.9073e-6)">
+   <text x="-104.32142" y="120.27288" fill="#000000" font-family="Sans" font-size="10.583px" letter-spacing="0px" word-spacing="0px" style="line-height:6.61458302px" xml:space="preserve"><tspan x="-104.32142" y="120.27288">Handshake</tspan></text>
+   <rect x="-109.61" y="103.48" width="67.28" height="25.702" fill-opacity="0" stroke="#000"/>
+  </g>
+  <g transform="translate(-4.5357)">
+   <text x="44.798298" y="119.2471" fill="#000000" font-family="Sans" font-size="10.583px" letter-spacing="0px" word-spacing="0px" style="line-height:6.61458302px" xml:space="preserve"><tspan x="44.798298" y="119.2471">ChangeCipherSpec</tspan></text>
+   <rect x="42.333" y="104.61" width="105.83" height="23.435" fill-opacity="0" stroke="#000"/>
+  </g>
+  <g transform="translate(-3.0238)">
+   <text x="-3.59114" y="173.18954" fill="#000000" font-family="Sans" font-size="10.583px" letter-spacing="0px" stroke-width=".26458px" word-spacing="0px" style="line-height:6.61458302px" xml:space="preserve"><tspan x="-3.59114" y="173.18954" stroke-width=".26458px">Record</tspan></text>
+   <rect x="-110.36" y="153.38" width="257.77" height="31.735" fill-opacity="0" stroke="#000" stroke-width="1.0147"/>
+  </g>
+ </g>
+</svg>
