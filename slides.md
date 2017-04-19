@@ -10,11 +10,12 @@ Outline
 
 --
 
-IOT
-* huge number of
-* resource constrained devices
-* connected to each other
-* bonus: real time requirements
+Motivation
+* IOT, Industry 4.0, cyber physical systems..
+* huge number of: <!-- .element: class="fragment" data-fragment-index="1" -->
+* resource constrained devices<!-- .element: class="fragment" data-fragment-index="1" -->
+* connected to each other<!-- .element: class="fragment" data-fragment-index="1" -->
+* bonus: real time requirements<!-- .element: class="fragment" data-fragment-index="1" -->
 
 --
 
@@ -23,6 +24,8 @@ Question: What about sensitive data? / How to protect the communication?
 --
 
 Hypothesis: TLS is suited for the protection of resource-constrained realtime  systems
+Note:
+my super note
 
 --
 
@@ -70,7 +73,7 @@ Brief background on TLS
 
 --
 
-Why is choice of cipher suite so important?
+Why is the choice of cipher suite so important?
 * one of the very few dynamic components
 * cryptographic operations dominate the runtime
 * test all cipher suite for influence on latency
@@ -87,21 +90,9 @@ Why is choice of cipher suite so important?
 --
 
 TLS implementation
-
---
-
-candidate for TLS library
-* OpenSSL (and derivates): too heavy
-* wolfSSL: suited for embedded environments, seems somewhat "hacky"
-* mbed TLS: ARMs official mbed library, supports almost all TLS features, felt convenient to use
-
---
-
-structure of mbed
-* split into three libraries: crypto, tls, x509
-* gained insight into library via callgrind (and KCachegrind)
-* TLS protocols steps each have their own function 
-* write_xy: caller sends the message xy, parse_xy: caller receives the message xy
+* OpenSSL (and derivates): too heavy <!-- .element: class="fragment" data-fragment-index="1" -->
+* wolfSSL: suited for embedded environments, seems somewhat "hacky" <!-- .element: class="fragment" data-fragment-index="2" -->
+* mbed TLS: ARM's official mbed library, supports almost all TLS features, felt convenient to use <!-- .element: class="fragment" data-fragment-index="3" -->
 
 --
 
@@ -117,33 +108,53 @@ How to instrument?
 
 --
 
+Solution:
 * small library linked to target code
 * manual insertion of log points into the code
 * relies on clock gettime call
 * different clock modes (wall clock, NTP independent clock, process / thread time)
-* notifies controller if internal buffer is full and logs need to be fetched
-* two important structures: logging_context, logging_entry
+* general: metric function with monotonically rising values necessary
 
 --
 
 API
-* log_point(label, ctx, result)
-Usage
-    int my_function(...) {
-        log_point(MY_FUNCTION_START, global_log_ctx, 0);
-        // do stuff
-        log_point(MY_FUNCTION_STOP, global_log_ctx, 0);
-        return result;
-    }
+* log_point(label, ctx, payload)
+* Usage 
+        int my_function(...) {
+            log_point(MY_FUNCTION_START, global_log_ctx, 0);
+            // do stuff
+            log_point(MY_FUNCTION_STOP, global_log_ctx, 0);
+            return result;
+        }
+
+* log_point calls can be nested <!-- .element: class="fragment" data-fragment-index="2" -->
 
 --
 
 Logging labels
-* identifier and type
-* depending on identifier, actual labels are generated
+* translated before compile time 
+* combination of identifier and type
+* type can either be primitive or compound ("meta")
+* example: 
+        PERFORM_BENCHMARK,META
+becomes
+
+        enum logging_label {
+            PERFORM_BENCHMARK_START = 0;
+            PERFORM_BENCHMARK_STOP = 1;
+        }
+
+Note:
 * typically with _START and _STOP suffixes
+* depending on identifier, actual labels are generated
 * additional features possible (e.g. for use during analysis)
-* generated before compile time, put into a header file
+* Data structures
+* logging_context
+* logging_entry
+* payload
+* field for additional information
+* could be used for arbitrary types or information
+* example: energy consumption value
 
 --
 
@@ -154,59 +165,39 @@ Log trees
 
 --
 
-Procedure (Instrumentation)
-* setup network
-* run start_bench.sh on target platforms
-* start_bench.sh gets server IP, server TLS port and a port on which the controller is accepted
-* controller.py knows addresses through config file
-* controller.py then told which experiment to run, initiates experiments
-* bench processes run experiments (repeatedly!); are eventually queried by controller.py
-* controller stores logs into database for further analysis
+Correctness (1)
+* by instrumenting top-level "do_experiment_function", all execution time is taken into account
+* from there, things get only more precise
+
+Note:
+* "How to ensure I haven't forgotten to instrument a major spot?"
 
 --
 
-<img src="images/ProtoInitial.png"/>
+completeness (2)
+* a high level log block is made of primitive log blocks and time that's unaccounted for
+* ratio between unaccounted time and time of primitive log blocks determine the coverage or insight into the target
+* hence all time is measured. constraints: possibly I cannot figure the exact spot yet. can be fixed by adding more log points
+* for this to work, target must be single-threaded (mbed TLS is)
 
 --
 
-<img src="images/ProtoNormal.png"/>
+Where to place the log points?
 
 --
 
-<img src="images/ProtoBufferFull.png"/>
-
---
-
-Procedure (Analysis)
-* two phases: extraction of useful information (put into csvs) and plotting of the data
-* reason: interpretation of logs time consuming, intermediate dumps speed workflow up
-
---
-
-log storage
-* SQLite (very homogenous data)
-* split into multiple database files (performance)
-* directory structure: <exp-ID>/<exp-type>/<Board or pc as server>/<cs-id>/<Pc or board>.ins
-* ins for instrumentation
-
---
-
-* dump list of all supported cipher suites by this built of mbed into file 
-* reasons: explicit knowledge on current CS, builts for very constrained platforms may be stripped
-* would have to do several builds and runs to test all CS
-
---
-
-builder.py
-* generates header for configuration and log labels
-* builds mbed TLS and bench
+structure of mbed
+* gained insight into library via callgrind (and KCachegrind)
+* split into three libraries: crypto, tls, x509
+* TLS protocols steps each have their own function 
+* write_xy: caller sends the message xy, parse_xy: caller receives the message xy
 
 --
 
 placement of logs
 * cover protocol step functions
 * cover the whole crypto API
-* idea: most time is spent in (asymmetric crypto operations)
+* idea: most time is spent in (a)symmetric crypto operations
 * knowledge of protocol step sufficient, no general need for further insight
 
 --
@@ -220,19 +211,30 @@ implicitly instrumented
 
 --
 
-completeness (1)
-* "How to ensure I haven't forgotten to instrument a major spot?"
-* remember log trees: log points form a block through _START and _STOP labels
-* by instrumenting top-level "do_experiment_function", all execution time is taken into account
-* from there, things get only more precise
+Now we can instrument the implementation locally. What's next?
+
+Let's take a look at the "other" side of the test bench!  <!-- .element: class="fragment" data-fragment-index="1" -->
 
 --
 
-completeness (2)
-* a high level log block is made of primitive log blocks and time that's unaccounted for
-* ratio between unaccounted time and time of primitive log blocks determine the coverage or insight into the target
-* hence all time is measured. constraints: possibly I cannot figure the exact spot yet. can be fixed by adding more log points
-* for this to work, target must be single-threaded (mbed TLS is)
+Components of the test bench
+<img src="images/components.png"/>
+
+--
+
+<img height="600"; width="auto"; src="images/SetupSketch.svg"/>
+
+--
+
+<img height="600"; width="auto"; src="images/ProtoInitial.png"/>
+
+--
+
+<img height="600"; width="auto"; src="images/ProtoNormal.png"/>
+
+--
+
+<img height="600"; width="auto"; src="images/ProtoBufferFull.png"/>
 
 --
 
@@ -259,6 +261,7 @@ already measured logs can be processed. Also, an "open end" scenario is thinkabl
 --
 
 # Evaluation
+1. Methodology
 1. results
 2. overhead 
 3. drawbacks
@@ -331,6 +334,27 @@ performance impact
 --
 
 micro
+* mean of N=1000000 runs
+<table>
+<tr>
+    <td>Operation</td>
+    <td>Raw (ns)</td>
+    <td>Monotonic / Raw</td>
+    <td>Monotonic Coarse / Raw</td>
+</tr>
+<tr>
+    <td>SHA256</td>
+    <td>1266.5ns</td>
+    <td>1.114</td>
+    <td>1.090</td>
+</tr>
+<tr>
+    <td>3DES</td>
+    <td>8799.2ns</td>
+    <td>1.012</td>
+    <td>1.007</td>
+</tr>
+</table>
 
 --
 
@@ -341,13 +365,18 @@ macro
 
 --
 
-overhead, pc as server, pc side
-<img src="images/global_difference_read_latencies_by_keyxchg_PC_AS_SERVER.svg"/>
+overhead, pc as server, board side
+<img src="images/global_difference_write_latencies_by_keyxchg_PC_AS_SERVER.svg"/>
 
 --
 
-overhead, pc as server, board side
-<img src="images/global_difference_write_latencies_by_keyxchg_PC_AS_SERVER.svg"/>
+overhead sym, pc as server, board side
+<img src="images/global_difference_write_latencies_by_sym_PC_AS_SERVER.svg"/>
+
+--
+
+overhead, pc as server, pc side
+<img src="images/global_difference_read_latencies_by_keyxchg_PC_AS_SERVER.svg"/>
 
 --
 
@@ -355,9 +384,6 @@ overhead sym, pc as server, pc side
 <img src="images/global_difference_read_latencies_by_sym_PC_AS_SERVER.svg"/>
 
 --
-
-overhead sym, pc as server, board side
-<img src="images/global_difference_write_latencies_by_sym_PC_AS_SERVER.svg"/>
 
 verification
 * measure overhead (micro & macro scale)
@@ -385,13 +411,3 @@ portability and flexibility:
 * POSIX
 * other clock functions (process time) or even metrics (energy possible)
 
---
-
-the communication protocol
-
---
-
-
---
-
-<img src="images/components.png"/>
