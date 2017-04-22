@@ -126,7 +126,7 @@ Solution: home brew instrumentaion
 
 API
 * label, time stamp and (optional) payload
-* embracing log points (i.e. start and end label)
+* embracing log points form a log block
 * Usage 
         int my_function(...) {
             log_point(MY_FUNCTION_START, global_log_ctx, 0);
@@ -159,6 +159,13 @@ Completeness
 
 --
 
+Meta vs Primitive blocks
+* "Meta": large procedure (e.g. mbedtls_ssl_handshake) <!-- .element: class="fragment" data-fragment-index="1" -->
+* "Primitive": discrete (cryptographic) algorithm (e.g. mbedtls_aes_setkey_dec) <!-- .element: class="fragment" data-fragment-index="2" -->
+* relation used to judge preciseness of instrumentation (coverage) <!-- .element: class="fragment" data-fragment-index="3" -->
+
+--
+
 Where to place the log points?
 
 --
@@ -174,15 +181,13 @@ Note:
 
 --
 
-placement of logs
+What to instrument?
 * cover protocol step functions
 * cover the whole crypto API
 * idea: most time is spent in (a)symmetric crypto operations
 * knowledge of protocol step sufficient, no general need for further insight
 
---
-
-covering the crypto API
+Note:
 * mbed TLS comes with a built-in benchmark tool that measures raw crypto performance
 * went through list of included header files to identify roughly all crypto functions
 * perks: by instrumenting the function declaration and not explicit calls, all calls are
@@ -191,9 +196,7 @@ implicitly instrumented
 
 --
 
-Now we can instrument the implementation locally. What's next?
-
-Let's take a look at the "other" side of the test bench!  <!-- .element: class="fragment" data-fragment-index="1" -->
+Software architecture
 
 --
 
@@ -371,51 +374,23 @@ Note:
 
 --
 
-A closer look on latency (types)
-
---
-
-<img height="350"; width="auto"; src="images/write_latency_expl.svg"/>
-* latency 1 = L2 − L1 − IO <!-- .element: class="fragment" data-fragment-index="1" -->
-* latency 2 = L3 − L1 − IO <!-- .element: class="fragment" data-fragment-index="1" -->
-* latency 3 = L3 − L1 <!-- .element: class="fragment" data-fragment-index="1" -->
-
-Note:
-* mbedtls_ssl_write function
-* no knowledge beforehands where something TLS related is done and where I/O is involved
-* latency: extra time spent in TLS layer
-* question: from where to compute start / end?
-* differentiate by: include post-processing? include IO?
-
---
-
-<img height="350"; width="auto"; src="images/read_latency_expl.svg"/>
-* latency 1' = L3' − L1' − IO<!-- .element: class="fragment" data-fragment-index="1" -->
-* latency 2' = L3' − L2' − IO<!-- .element: class="fragment" data-fragment-index="1" -->
-* latency 3' = L3' − L2'<!-- .element: class="fragment" data-fragment-index="1" -->
-
-Note:
-* stop is fixed, 
-
---
-
-<img src="images/5-Board_rw_dens.svg"/>
-
---
-
-<img src="images/5-Board_rw_hist.svg"/>
-
---
-
-Consider hardware accelaration for cryptographic ciphers..
+Share of bulk cipher and hash algorithm in user data exchange
 
 --
 
 <img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_hash.svg"/>
+Note:
+* idea: HW acceleration for symmetric cipher available
+* cipher hence "fixed" for maximum performance. Which hash algo to use then?
+* median time, based on 10x1000 read/write operations of 1KByte each
+* GCM/CCM at 0 because MAC in cipher mode integrated
+* SHA256 reasonable choice
 
 --
 
 <img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_sym.svg"/>
+Note:
+* for reference, also coloured by symmetric cipher
 
 --
 
@@ -464,21 +439,18 @@ macro
 
 overhead, pc as server, board side
 <img src="images/global_difference_write_latencies_by_keyxchg_PC_AS_SERVER.svg"/>
-
---
-
-overhead sym, pc as server, board side
-<img src="images/global_difference_write_latencies_by_sym_PC_AS_SERVER.svg"/>
-
---
-
-overhead, pc as server, pc side
-<img src="images/global_difference_read_latencies_by_keyxchg_PC_AS_SERVER.svg"/>
+Note:
+* y-axis: relation of median handshake latency of 1000 runs between instrumented/uninstrumented mbed TLS 
+* x-axis: relation of median user data exchange latency of 10000 runs between instrumented/uninstrumented mbed TLS
+* also colored by symmetric
 
 --
 
 overhead sym, pc as server, pc side
 <img src="images/global_difference_read_latencies_by_sym_PC_AS_SERVER.svg"/>
+Note:
+* average of all data points is slightly below 1
+* noise indicates that logging has hardly impact on fast machines 
 
 --
 
@@ -500,7 +472,7 @@ A word on metric functions..
 
 --
 
-* candidates for measuring execution time: 
+candidates for measuring execution time
 * cycle count <!-- .element: class="fragment" data-fragment-index="1" -->
 * process/thread clock<!-- .element: class="fragment" data-fragment-index="2" -->
 * (wall) clock<!-- .element: class="fragment" data-fragment-index="3" -->
