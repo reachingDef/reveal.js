@@ -119,42 +119,21 @@ Solution:
 
 API
 * log_point(label, ctx, payload)
+* embracing log points (i.e. start and end label)
 * Usage 
         int my_function(...) {
             log_point(MY_FUNCTION_START, global_log_ctx, 0);
             // do stuff
+            log_point(MY_STUFF_START, global_log_ctx, 0);
+            // do stuff
+            log_point(MY_STUFF_STOP, global_log_ctx, 0);
+            // do clean-up stuff
             log_point(MY_FUNCTION_STOP, global_log_ctx, 0);
             return result;
         }
 
-* log_point calls can be nested <!-- .element: class="fragment" data-fragment-index="2" -->
-
---
-
-Logging labels
-* translated before compile time 
-* combination of identifier and type
-* type can either be primitive or compound ("meta")
-* example: 
-        PERFORM_BENCHMARK,META
-becomes
-
-        enum logging_label {
-            PERFORM_BENCHMARK_START = 0;
-            PERFORM_BENCHMARK_STOP = 1;
-        }
-
 Note:
-* typically with _START and _STOP suffixes
-* depending on identifier, actual labels are generated
-* additional features possible (e.g. for use during analysis)
-* Data structures
-* logging_context
-* logging_entry
-* payload
-* field for additional information
-* could be used for arbitrary types or information
-* example: energy consumption value
+* nested logs possible (and heavily used)
 
 --
 
@@ -165,20 +144,11 @@ Log trees
 
 --
 
-Correctness (1)
-* by instrumenting top-level "do_experiment_function", all execution time is taken into account
-* from there, things get only more precise
-
-Note:
-* "How to ensure I haven't forgotten to instrument a major spot?"
-
---
-
-completeness (2)
-* a high level log block is made of primitive log blocks and time that's unaccounted for
-* ratio between unaccounted time and time of primitive log blocks determine the coverage or insight into the target
-* hence all time is measured. constraints: possibly I cannot figure the exact spot yet. can be fixed by adding more log points
-* for this to work, target must be single-threaded (mbed TLS is)
+Completeness
+* assume single-threaded code
+* target code can be surrounded by outer log label
+* then complete execution time (plus noise) is captured
+* nesting log points increases preciseness
 
 --
 
@@ -190,7 +160,10 @@ structure of mbed
 * gained insight into library via callgrind (and KCachegrind)
 * split into three libraries: crypto, tls, x509
 * TLS protocols steps each have their own function 
-* write_xy: caller sends the message xy, parse_xy: caller receives the message xy
+* user provides network I/O callbacks <!-- .element: class="fragment" data-fragment-index="1" -->
+
+Note:
+* callback: we're able to exclude time spent in kernel for I/O
 
 --
 
@@ -230,23 +203,26 @@ Components of the test bench
 
 --
 
+experiment 
+* controller sends current CS to client
+* (number of iterations, total payload size, size of a single packet)
+* here (1000, 10000, 1000)
+* since TLS asymmetric protocol: roles change
+
+Note:
+* read: each cipher suite was measured 1000 times. During each iteration,
+a total of 10000 bytes was exchanged, where each packet was 1000 byte large
+
+--
+
 <img height="600"; width="auto"; src="images/ProtoNormal.png"/>
+
+Note:
+* CLI_INS_HANDSHAKE has parameter to enforce cipher suite
 
 --
 
 <img height="600"; width="auto"; src="images/ProtoBufferFull.png"/>
-
---
-
-experiment (1) (additional graphics)
-* three parties: controller, TLS server and client
-* controller loads list of all cipher suites
-* controller sends current CS to client
-* (number of iterations, total payload size, size of a single packet)
-* here (1000, 10000, 1000)
-* read: each cipher suite was measured 1000 times. During each iteration,
-a total of 10000 bytes was exchanged, where each packet was 1000 byte large
-* since TLS asymmetric protocol: roles change
 
 --
 
@@ -268,14 +244,24 @@ already measured logs can be processed. Also, an "open end" scenario is thinkabl
 
 --
 
-results
-* server vs. client (handshake, payload)
-* handshake vs payload
-* type ratio
-* hash vs sym
-* stacked bar handshake proto steps
-* density & histograms
-* correlation time and packet no.
+Methodology
+* channel establishment with enforced cipher suite
+* always: initiator ("client") sends 10 packets with 1kB each to responder ("server")
+* I/O: refers to network I/O (not RAM / persistent storage)
+
+--
+
+Results
+* latencies for channel establishment and user data exchange
+* user data exchange split into symmetric cipher and hashing algorithm
+* detailed view of time protocol steps take, in chronological order
+* overview of how much time different types of operation take in protocol steps
+
+--
+
+Goal
+* give user simple metrics by which cipher suites can be chosen
+* provide tools to allow for deeper insights where necessary
 
 --
 
@@ -325,11 +311,51 @@ Overview of the internals during a handshake (cipher suite: 147)
 
 --
 
+A closer look on latency (types)
+
+--
+
+<img height="350"; width="auto"; src="images/write_latency_expl.svg"/>
+* latency 1 = L2 − L1 − IO <!-- .element: class="fragment" data-fragment-index="1" -->
+* latency 2 = L3 − L1 − IO <!-- .element: class="fragment" data-fragment-index="1" -->
+* latency 3 = L3 − L1 <!-- .element: class="fragment" data-fragment-index="1" -->
+
+--
+
+<img height="350"; width="auto"; src="images/read_latency_expl.svg"/>
+* latency 1' = L3' − L1' − IO<!-- .element: class="fragment" data-fragment-index="1" -->
+* latency 2' = L3' − L2' − IO<!-- .element: class="fragment" data-fragment-index="1" -->
+* latency 3' = L3' − L2'<!-- .element: class="fragment" data-fragment-index="1" -->
+
+--
+
+<img src="images/5-Board_rw_dens.svg"/>
+
+--
+
+<img src="images/5-Board_rw_hist.svg"/>
+
+--
+
+Consider hardware accelaration for cryptographic ciphers..
+
+--
+
+<img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_hash.svg"/>
+
+--
+
+<img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_sym.svg"/>
+
+--
+
 performance impact
 * measured on two levels
 * micro: run two crypto functions (slow, fast) with different forms of logging
-* different forms = no logging, logging with metric function, two different clock modes
 * macro: compare the runtime of an instrumented version of mbed TLS with an instrumented
+
+Note:
+* different forms = no logging, logging with metric function, two different clock modes
 
 --
 
@@ -385,17 +411,50 @@ overhead sym, pc as server, pc side
 
 --
 
-verification
-* measure overhead (micro & macro scale)
-* dependency of proto steps on cipher suite
-* argumentative
-* unaccounted areas
+portability and flexibility:
+* benchmark code written in C, very little outer dependencies
+* other clock functions may be used
+* theoretically also other metrics, e.g. energy consumption
+* requirements on metric function: monotonic rising
 
 --
 
 constraints:
-* certain dependencies on target environment
+* certain dependencies on target environment: POSIX, ethernet
 * noise by OS (scheduling!) included
+
+--
+
+A word on metric functions..
+
+--
+
+* candidates for measuring execution time: 
+* cycle count <!-- .element: class="fragment" data-fragment-index="1" -->
+* process/thread clock<!-- .element: class="fragment" data-fragment-index="2" -->
+* (wall) clock<!-- .element: class="fragment" data-fragment-index="3" -->
+
+--
+
+So why choosing wall clock?
+* availability of plain clock function 
+* evaluation designed to mitigate noise
+* framework designed to work with other clock functions
+
+Note:
+* other metric, then part of evaluation no longer necessary
+
+--
+
+means to mitigate noise
+* explicit instrumentation of I/O syscalls
+* all entities reside on different physical hardware during experiment
+* core pinning to prevent context switches between CPU cores
+* highest priority of all user space processes
+
+Note:
+* taskset
+* nice level < 0
 
 --
 
@@ -406,8 +465,4 @@ future work:
 
 --
 
-portability and flexibility:
-* requirements on metric function: monotonic rising
-* POSIX
-* other clock functions (process time) or even metrics (energy possible)
-
+# Questions?
