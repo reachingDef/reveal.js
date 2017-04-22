@@ -23,9 +23,7 @@ Question: What about sensitive data? / How to protect the communication?
 
 --
 
-Hypothesis: TLS is suited for the protection of resource-constrained realtime  systems
-Note:
-my super note
+Hypothesis: TLS is suited for the protection of low-resource realtime systems
 
 --
 
@@ -38,8 +36,8 @@ Why (not) TLS?
 --
 
 objectives:
-* resource constrained = limited RAM, persistent storage and computational capacity
-* real time = fixed (and low!) latency
+* low resource = limited RAM, persistent storage and computational capacity
+* realtime = fixed (and low!) latency
 
 --
 
@@ -89,10 +87,22 @@ Why is the choice of cipher suite so important?
 
 --
 
+Goal
+
+* give user simple metrics by which cipher suites can be chosen
+* provide tools to allow for deeper insights where necessary
+
+--
+
 TLS implementation
 * OpenSSL (and derivates): too heavy <!-- .element: class="fragment" data-fragment-index="1" -->
 * wolfSSL: suited for embedded environments, seems somewhat "hacky" <!-- .element: class="fragment" data-fragment-index="2" -->
-* mbed TLS: ARM's official mbed library, supports almost all TLS features, felt convenient to use <!-- .element: class="fragment" data-fragment-index="3" -->
+* mbed TLS: ARM's official TLS library, supports almost all TLS features, felt convenient to use <!-- .element: class="fragment" data-fragment-index="3" -->
+
+Note:
+* SSL2.0: 1995
+* TLS 1.0: 1999
+* TLS 1.2: 2008
 
 --
 
@@ -104,21 +114,18 @@ How to instrument?
 * callgrind: excellent tool, just too heavy
 * gprof: had a lot of quirks, also not sure if available on target platforms
 * considered other papers and their approach, none really suited mine
-* black box approach: device in the middle ("proxy"), does not allow deep insight
 
 --
 
-Solution:
+Solution: home brew instrumentaion
 * small library linked to target code
 * manual insertion of log points into the code
-* relies on clock gettime call
-* different clock modes (wall clock, NTP independent clock, process / thread time)
-* general: metric function with monotonically rising values necessary
+* relies on clock_gettime call
 
 --
 
 API
-* log_point(label, ctx, payload)
+* label, time stamp and (optional) payload
 * embracing log points (i.e. start and end label)
 * Usage 
         int my_function(...) {
@@ -193,9 +200,20 @@ Let's take a look at the "other" side of the test bench!  <!-- .element: class="
 Components of the test bench
 <img src="images/components.png"/>
 
+Note:
+* driver: runs the experiment code 
+* built by builder
+* controller: orchestrates the experiments
+
 --
 
 <img height="600"; width="auto"; src="images/SetupSketch.svg"/>
+
+Note:
+* physical setup: TWR board, powerful tower PC and laptop connected through 1Gb ethernet
+* bare bone linux installation
+* board and tower run driver application, laptop controller
+* virtual links: drivers speak TLS, controller and drivers use custom protocol
 
 --
 
@@ -259,31 +277,58 @@ Results
 
 --
 
-Goal
-* give user simple metrics by which cipher suites can be chosen
-* provide tools to allow for deeper insights where necessary
-
---
-
-Overview of all cipher suites
-* board perspective
-* coloured by symmetric bulk cipher / key exchange method
+* "handshake": runtime of 'mbedtls_ssl_handshake' function
+* "user data exchange": runtime of 'mbedtls_ssl_read' / 'mbedtls_ssl_write' function
 
 --
 
 <img src="images/w_ov_by_keychg.svg"/>
+Note:
+* combined overview of handshake and user data exchange latencies
+* y-axis: median time of 1000 handshakes (init / respond)
+* x-axis: median time of 10x1000 user data exchange (1 kByte) (write / read)
+* nice separation into layers parallel to x-axis
+* bottom: PSK
+* performance asymmetry: RSA performs well (client only encrypts)
+* elliptic curves with average performance
+* slowest: 'pure' DH
 
 --
 
 <img src="images/w_ov_by_sym.svg"/>
+Note:
+* separation into layers parallel to y-axis
+* RC4 fastest (broken, but stream ciphers interesting, Salsa20)
+* fastest secure cipher: AES 128 CBC
+* 3DES unsurprisingly slowest
+* same for handshake responder side, reading side - omitted due to time constraints
 
 --
 
-<img src="images/r_ov_by_keychg.svg"/>
+Winners
+<table>
+<tr>
+<td>read</td><td>write</td><td>handshake initiator</td><td>handshake responder</td>
+</tr>
+<tr>
+<td>69.92us</td><td>67.36us</td><td>1159.84us</td><td>1265.88us</td>
+</tr>
+<tr>
+<td>RC4-128-MD5</td><td>RC4-128-MD5</td><td>PSK-WITH</td><td>PSK-WITH</td>
+</tr>
+</table>
+
+Note:
+* CS fixed set, no overall winner
 
 --
 
-<img src="images/r_ov_by_sym.svg"/>
+Recommendation
+* read/write: AES-128-CBC (AES-128-GCM if AES hardware accelerated)
+* handshake initiation: PSK (if infrastructure available), RSA 
+* handshake responder: PSK (if infrastructure available), RSA
+* avoid 3DES and DH(E)
+* reasonable choice: TLS-RSA-WITH-AES-128-GCM
 
 --
 
@@ -292,10 +337,14 @@ Showing the single protocol step of a handshake for a single cipher suite
 --
 
 <img src="images/49320-stacked_COMPLETE_HANDSHAKE_Board_exc_io.svg"/>
-
---
-
-<img src="images/stacked_COMPLETE_HANDSHAKE_Board_exc_io.svg"/>
+Note:
+* idea: "Where exactly is time spent during the handshake?"
+* outer bar: total handshake time
+* inner bars: protocol steps
+* y-axis: linear time in micro seconds
+* steps in chronological order
+* 1000 iterations, median time of each protocol step
+* presentational approach can be used for any kinds of labels, also arbitrarly deep
 
 --
 
@@ -304,10 +353,21 @@ Overview of the internals during a handshake (cipher suite: 147)
 --
 
 <img src="images/groupby_COMPLETE_HANDSHAKE_Board_exc_io_147.svg"/>
+Note:
+* idea: "Which types of cryptographic operation is most time spent on?"
+* here for handshake, also possible for user data exchange
+* client side
+* most time spent on asymmetric cryptography 
+* RNG: random number generator (secret generation)
+* Rest: time in handshake block that's not been covered by primitive crypto labels
 
 --
 
 <img src="images/groupby_COMPLETE_HANDSHAKE_Board_inc_io_147.svg"/>
+Note:
+* for reference, how much time is spent in I/O?
+* I/O: TLS, I/O logs: transportation of logs
+* really makes sense to exclude I/O time
 
 --
 
@@ -320,12 +380,22 @@ A closer look on latency (types)
 * latency 2 = L3 − L1 − IO <!-- .element: class="fragment" data-fragment-index="1" -->
 * latency 3 = L3 − L1 <!-- .element: class="fragment" data-fragment-index="1" -->
 
+Note:
+* mbedtls_ssl_write function
+* no knowledge beforehands where something TLS related is done and where I/O is involved
+* latency: extra time spent in TLS layer
+* question: from where to compute start / end?
+* differentiate by: include post-processing? include IO?
+
 --
 
 <img height="350"; width="auto"; src="images/read_latency_expl.svg"/>
 * latency 1' = L3' − L1' − IO<!-- .element: class="fragment" data-fragment-index="1" -->
 * latency 2' = L3' − L2' − IO<!-- .element: class="fragment" data-fragment-index="1" -->
 * latency 3' = L3' − L2'<!-- .element: class="fragment" data-fragment-index="1" -->
+
+Note:
+* stop is fixed, 
 
 --
 
@@ -388,6 +458,7 @@ macro
 * instrumentation still takes place in bench process
 * no deeper insight possible (IO ?)
 * compare handshake and read and write latency
+* however: time used to transmit logs captured
 
 --
 
