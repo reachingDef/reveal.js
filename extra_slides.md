@@ -18,3 +18,30 @@ builder.py
 
 --
 
+Logging labels
+* translated before compile time 
+* combination of identifier and type
+* type can either be primitive or compound ("meta")
+* example: 
+        PERFORM_BENCHMARK,META
+becomes
+
+        enum logging_label {
+            PERFORM_BENCHMARK_START = 0;
+            PERFORM_BENCHMARK_STOP = 1;
+        }
+
+Note:
+* typically with _START and _STOP suffixes
+* depending on identifier, actual labels are generated
+* additional features possible (e.g. for use during analysis)
+* Data structures
+* logging_context
+* logging_entry
+* payload
+* field for additional information
+* could be used for arbitrary types or information
+* example: energy consumption value
+
+--
+
