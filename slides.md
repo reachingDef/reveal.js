@@ -220,19 +220,18 @@ Note:
 
 --
 
-<img height="600"; width="auto"; src="images/ProtoInitial.png"/>
+Procedure
+1. controller assigns server / client roles <!-- .element: class="fragment" data-fragment-index="1" -->
+2. for each cipher suite<!-- .element: class="fragment" data-fragment-index="2" -->
+    * client initiates handshake with server
+    * after channel establishment, client sends packets to server
+    * instrumented data is sent to the controller
+3. controller switches server / client roles<!-- .element: class="fragment" data-fragment-index="3" -->
+4. repeat with 2.<!-- .element: class="fragment" data-fragment-index="4" -->
 
 --
 
-experiment 
-* controller sends current CS to client
-* (number of iterations, total payload size, size of a single packet)
-* here (1000, 10000, 1000)
-* since TLS asymmetric protocol: roles change
-
-Note:
-* read: each cipher suite was measured 1000 times. During each iteration,
-a total of 10000 bytes was exchanged, where each packet was 1000 byte large
+<img height="600"; width="auto"; src="images/ProtoInitial.png"/>
 
 --
 
@@ -247,16 +246,6 @@ Note:
 
 --
 
-Internally
-* client initiates and proceeds handshake 10 times
-* after each channel establishment, 10x 1KB dummy payload is sent from client to server
-* repeat after all cipher suites were used
-* then start again (total: 100 iterations)
-* reason: whole experiment for single CS takes very long. By splitting up,
-already measured logs can be processed. Also, an "open end" scenario is thinkable
-
---
-
 # Evaluation
 1. Methodology
 1. results
@@ -265,23 +254,20 @@ already measured logs can be processed. Also, an "open end" scenario is thinkabl
 
 --
 
-Methodology
-* channel establishment with enforced cipher suite
-* always: initiator ("client") sends 10 packets with 1kB each to responder ("server")
-* I/O: refers to network I/O (not RAM / persistent storage)
+Instrumented latency times (for each cipher suite)
+
+* 1000 handshakes (initiator, responder)
+* 10,000 reads / writes of 1KByte
 
 --
 
 Results
-* latencies for channel establishment and user data exchange
-* user data exchange split into symmetric cipher and hashing algorithm
-* detailed view of time protocol steps take, in chronological order
-* overview of how much time different types of operation take in protocol steps
-
---
-
-* "handshake": runtime of 'mbedtls_ssl_handshake' function
-* "user data exchange": runtime of 'mbedtls_ssl_read' / 'mbedtls_ssl_write' function
+* Overview
+    * latencies for channel establishment and user data exchange
+* utilities for deeper insight
+    * user data exchange split into symmetric cipher and hashing algorithm
+    * detailed view of time protocol steps take, in chronological order
+    * overview of how much time different types of operation take in protocol steps
 
 --
 

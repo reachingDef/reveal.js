@@ -81,3 +81,24 @@ Note:
 
 --
 
+experiment 
+* controller sends current CS to client
+* (number of iterations, total payload size, size of a single packet)
+* here (1000, 10000, 1000)
+* since TLS asymmetric protocol: roles change
+
+Note:
+* read: each cipher suite was measured 1000 times. During each iteration,
+a total of 10000 bytes was exchanged, where each packet was 1000 byte large
+
+--
+
+Internally
+* client initiates and proceeds handshake 10 times
+* after each channel establishment, 10x 1KB dummy payload is sent from client to server
+* repeat after all cipher suites were used
+* then start again (total: 100 iterations)
+* reason: whole experiment for single CS takes very long. By splitting up,
+already measured logs can be processed. Also, an "open end" scenario is thinkable
+
+
