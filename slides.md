@@ -23,10 +23,9 @@ Hypothesis: TLS is suited for the protection of low-resource realtime systems
 
 --
 
-latency
-* roughly: time between call of TLS library function until system IO function is reached
-* channel establishment<!-- .element: class="fragment" data-fragment-index="1" -->
-* exchange of user data  <!-- .element: class="fragment" data-fragment-index="1" -->
+<b>Latency = additional time that is necessary to pass through TLS layer</b>
+* channel establishment: time before first packet can be sent
+* user data: time before system IO function is reached
 
 --
 
@@ -35,12 +34,20 @@ Why (not) TLS?
 *  many implementations
 *  considered to be slow <!-- .element: class="fragment" data-fragment-index="1" -->
 *  and resource hungry <!-- .element: class="fragment" data-fragment-index="1" -->
+Note:
+* SSL2.0: 1995
+* TLS 1.0: 1999
+* TLS 1.2: 2008
 
 --
 
 Verification in two steps:
 1. development of a test bench <!-- .element: class="fragment" data-fragment-index="1" -->
 2. evaluation of TLS on selected target platforms <!-- .element: class="fragment" data-fragment-index="2" -->
+
+Note:
+* first steps more extensive than thought
+* evaluation only on TWR board (fast, has linux on it)
 
 --
 
@@ -50,18 +57,26 @@ Brief background on TLS
 
 <img  width="800"; height="auto"; src="images/tls_layers.svg"/>
 * relevant sub protocols: Handshake & record layer protocol 
+Note:
+* works on transport layer
+* multi layered protocol
 
 --
 
 <img height="600"; width="auto"; src="images/SSL_handshake.png"/>
+Note:
+* client sends ClientHello with list of supported CS & TLS version
+* if match: server responds with ServerHello, selects CS & TLS version
+* server proves its identity, means described by cipher suite
+* client generates random secret
+* depending on CS, secret is securely transmitted to server
+* symmetric keys are derived
+* finally: hash over all protocol messages first message that's protected by established security parameters
 
 --
 
 <img src="images/MS_CS_dissection.png"/>
-
---
-
-Why is the choice of cipher suite so important?
+Note:
 * one of the very few dynamic components
 * cryptographic operations dominate the runtime
 * test all cipher suite for influence on latency
@@ -69,11 +84,6 @@ Why is the choice of cipher suite so important?
 --
 
 # test bench
-1. tls implementation
-2. instrumentation
-3. (now that we have the data..) comm protocol
-4. software architecture (components)
-5. correctness
 
 --
 
@@ -84,19 +94,10 @@ Goal
 
 --
 
-TLS implementation
-* OpenSSL (and derivates): too heavy <!-- .element: class="fragment" data-fragment-index="1" -->
-* wolfSSL: suited for embedded environments, seems somewhat "hacky" <!-- .element: class="fragment" data-fragment-index="2" -->
-* mbed TLS: ARM's official TLS library, supports almost all TLS features, felt convenient to use <!-- .element: class="fragment" data-fragment-index="3" -->
-
-Note:
-* SSL2.0: 1995
-* TLS 1.0: 1999
-* TLS 1.2: 2008
-
---
-
-Instrumentation
+mbed TLS
+* ARMS's official TLS library
+* supports almost all TLS features
+* modular design
 
 --
 
@@ -107,7 +108,7 @@ How to instrument?
 
 --
 
-Solution: home brew instrumentaion
+Solution: home brew instrumentation
 * small library linked to target code
 * manual insertion of log points into the code
 * relies on clock_gettime call
@@ -158,10 +159,6 @@ Meta vs Primitive blocks
 
 --
 
-Where to place the log points?
-
---
-
 What to instrument?
 * cover protocol step functions
 * cover the whole crypto API
@@ -177,20 +174,6 @@ implicitly instrumented
 
 --
 
-Software architecture
-
---
-
-Components of the test bench
-<img src="images/components.png"/>
-
-Note:
-* driver: runs the experiment code 
-* built by builder
-* controller: orchestrates the experiments
-
---
-
 <img height="600"; width="auto"; src="images/SetupSketch.svg"/>
 
 Note:
@@ -201,24 +184,16 @@ Note:
 
 --
 
-Procedure
-1. controller assigns server / client roles <!-- .element: class="fragment" data-fragment-index="1" -->
-2. for each cipher suite<!-- .element: class="fragment" data-fragment-index="2" -->
-    * client initiates handshake with server
-    * after channel establishment, client sends packets to server
-    * instrumented data is sent to the controller
-3. controller switches server / client roles<!-- .element: class="fragment" data-fragment-index="3" -->
-4. repeat with 2.<!-- .element: class="fragment" data-fragment-index="4" -->
-
---
-
-<img height="600"; width="auto"; src="images/ProtoInitial.png"/>
-
---
-
 <img height="600"; width="auto"; src="images/ProtoNormal.png"/>
 
 Note:
+* controller assigns server /client roles
+* for each cipher suite
+    * client initiates handshake with server
+    * after channel establishment, client sends packets to server
+    * instrumented data is sent to the controller
+* controller switches server / client roles
+* repeat 
 * CLI_INS_HANDSHAKE has parameter to enforce cipher suite
 
 --
@@ -291,10 +266,6 @@ Note:
 
 --
 
-Overview of the internals during a handshake (cipher suite: 147)
-
---
-
 <img src="images/groupby_COMPLETE_HANDSHAKE_Board_exc_io_147.svg"/>
 Note:
 * idea: "Which types of cryptographic operation is most time spent on?"
@@ -315,36 +286,7 @@ Note:
 --
 
 Performance impact
-* micro: run two crypto functions (slow, fast) with different forms of logging
-* macro: compare the runtime of an instrumented version of mbed TLS with an instrumented
-
-Note:
-* different forms = no logging, logging with metric function, two different clock modes
-
---
-
-micro
-* mean of N=1000000 runs
-<table>
-<tr>
-    <td>Operation</td>
-    <td>Raw (ns)</td>
-    <td>Monotonic / Raw</td>
-    <td>Monotonic Coarse / Raw</td>
-</tr>
-<tr>
-    <td>SHA256</td>
-    <td>1266.5ns</td>
-    <td>1.114</td>
-    <td>1.090</td>
-</tr>
-<tr>
-    <td>3DES</td>
-    <td>8799.2ns</td>
-    <td>1.012</td>
-    <td>1.007</td>
-</tr>
-</table>
+* compare the runtime of an instrumented version of mbed TLS with an uninstrumented version
 
 --
 
