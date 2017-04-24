@@ -167,4 +167,52 @@ Note:
 * I/O: TLS, I/O logs: transportation of logs
 * really makes sense to exclude I/O time
 
+--
+
+micro
+* mean of N=1000000 runs
+<table>
+<tr>
+    <td>Operation</td>
+    <td>Raw (ns)</td>
+    <td>Monotonic / Raw</td>
+    <td>Monotonic Coarse / Raw</td>
+</tr>
+<tr>
+    <td>SHA256</td>
+    <td>1266.5ns</td>
+    <td>1.114</td>
+    <td>1.090</td>
+</tr>
+<tr>
+    <td>3DES</td>
+    <td>8799.2ns</td>
+    <td>1.012</td>
+    <td>1.007</td>
+</tr>
+</table>
+
+Note:
+* different forms = no logging, logging with metric function, two different clock modes
+
+--
+
+Software architecture
+
+--
+
+Components of the test bench
+<img src="images/components.png"/>
+
+Note:
+* driver: runs the experiment code 
+* built by builder
+* controller: orchestrates the experiments
+
+--
+
+<img height="600"; width="auto"; src="images/ProtoInitial.png"/>
+Note:
+* controller assigns server / client roles 
+
 
