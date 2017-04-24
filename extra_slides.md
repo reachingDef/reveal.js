@@ -101,4 +101,70 @@ Internally
 * reason: whole experiment for single CS takes very long. By splitting up,
 already measured logs can be processed. Also, an "open end" scenario is thinkable
 
+--
+
+Text dump of the log tree
+
+        [Start] CIPHER_SPEC - PROTO_STEP - stamp=75086081472920
+            [Start] REC_SEND_IO - IO - stamp=75086081478182
+            [Stop] REC_SEND_IO - IO - stamp=75086081480769 - duration=2.587
+        [Stop] CIPHER_SPEC - PROTO_STEP - stamp=75086081482771 - duration=9.851
+
+--
+
+structure of mbed
+* gained insight into library via callgrind (and KCachegrind)
+* split into three libraries: crypto, tls, x509
+* TLS protocols steps each have their own function 
+* user provides network I/O callbacks <!-- .element: class="fragment" data-fragment-index="1" -->
+
+Note:
+* callback: we're able to exclude time spent in kernel for I/O
+
+--
+
+Winners
+<table>
+<tr>
+<td>read</td><td>write</td><td>handshake initiator</td><td>handshake responder</td>
+</tr>
+<tr>
+<td>69.92us</td><td>67.36us</td><td>1159.84us</td><td>1265.88us</td>
+</tr>
+<tr>
+<td>RC4-128-MD5</td><td>RC4-128-MD5</td><td>PSK-WITH</td><td>PSK-WITH</td>
+</tr>
+</table>
+
+Note:
+* CS fixed set, no overall winner
+
+--
+
+Share of bulk cipher and hash algorithm in user data exchange
+
+--
+
+<img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_hash.svg"/>
+Note:
+* idea: HW acceleration for symmetric cipher available
+* cipher hence "fixed" for maximum performance. Which hash algo to use then?
+* median time, based on 10x1000 read/write operations of 1KByte each
+* GCM/CCM at 0 because MAC in cipher mode integrated
+* SHA256 reasonable choice
+
+--
+
+<img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_sym.svg"/>
+Note:
+* for reference, also coloured by symmetric cipher
+
+--
+
+<img src="images/groupby_COMPLETE_HANDSHAKE_Board_inc_io_147.svg"/>
+Note:
+* for reference, how much time is spent in I/O?
+* I/O: TLS, I/O logs: transportation of logs
+* really makes sense to exclude I/O time
+
 

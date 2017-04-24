@@ -1,12 +1,9 @@
 Outline
-1. Motivation & Hypothesis
-2. TLS protocol background
-3. TLS library
-4. Instrumentation
-5. Experiment(s)
-6. Results
-7. Constraints / drawbacks
-8. Outlook
+
+1. Background
+2. Test bench
+3. Results
+4. Evaluation
 
 --
 
@@ -15,15 +12,21 @@ Motivation
 * huge number of: <!-- .element: class="fragment" data-fragment-index="1" -->
 * resource constrained devices<!-- .element: class="fragment" data-fragment-index="1" -->
 * connected to each other<!-- .element: class="fragment" data-fragment-index="1" -->
-* bonus: real time requirements<!-- .element: class="fragment" data-fragment-index="1" -->
-
---
-
-Question: What about sensitive data? / How to protect the communication?
+* real time requirements<!-- .element: class="fragment" data-fragment-index="1" -->
+* How can we protect sensitive data?   <!-- .element: class="fragment" data-fragment-index="2" -->
 
 --
 
 Hypothesis: TLS is suited for the protection of low-resource realtime systems
+* low resource = limited RAM, persistent storage and computational capacity<!-- .element: class="fragment" data-fragment-index="1" -->
+* realtime = fixed (and low!) latency<!-- .element: class="fragment" data-fragment-index="2" -->
+
+--
+
+latency
+* roughly: time between call of TLS library function until system IO function is reached
+* channel establishment<!-- .element: class="fragment" data-fragment-index="1" -->
+* exchange of user data  <!-- .element: class="fragment" data-fragment-index="1" -->
 
 --
 
@@ -32,19 +35,6 @@ Why (not) TLS?
 *  many implementations
 *  considered to be slow <!-- .element: class="fragment" data-fragment-index="1" -->
 *  and resource hungry <!-- .element: class="fragment" data-fragment-index="1" -->
-
---
-
-objectives:
-* low resource = limited RAM, persistent storage and computational capacity
-* realtime = fixed (and low!) latency
-
---
-
-latency
-* roughly: time between call of TLS library function until system IO function is reached
-* channel establishment<!-- .element: class="fragment" data-fragment-index="1" -->
-* exchange of user data  <!-- .element: class="fragment" data-fragment-index="1" -->
 
 --
 
@@ -160,24 +150,15 @@ Completeness
 --
 
 Meta vs Primitive blocks
-* "Meta": large procedure (e.g. mbedtls_ssl_handshake) <!-- .element: class="fragment" data-fragment-index="1" -->
-* "Primitive": discrete (cryptographic) algorithm (e.g. mbedtls_aes_setkey_dec) <!-- .element: class="fragment" data-fragment-index="2" -->
+* <b>Meta</b>: large procedure <br/>
+(mbedtls_ssl_handshake) 
+* <b>Primitive</b>: discrete algorithm 
+(mbedtls_aes_setkey_dec) 
 * relation used to judge preciseness of instrumentation (coverage) <!-- .element: class="fragment" data-fragment-index="3" -->
 
 --
 
 Where to place the log points?
-
---
-
-structure of mbed
-* gained insight into library via callgrind (and KCachegrind)
-* split into three libraries: crypto, tls, x509
-* TLS protocols steps each have their own function 
-* user provides network I/O callbacks <!-- .element: class="fragment" data-fragment-index="1" -->
-
-Note:
-* callback: we're able to exclude time spent in kernel for I/O
 
 --
 
@@ -246,11 +227,13 @@ Note:
 
 --
 
-# Evaluation
-1. Methodology
-1. results
-2. overhead 
-3. drawbacks
+# Results
+1. Overview
+2. Toolset
+
+--
+
+# overview
 
 --
 
@@ -258,16 +241,6 @@ Instrumented latency times (for each cipher suite)
 
 * 1000 handshakes (initiator, responder)
 * 10,000 reads / writes of 1KByte
-
---
-
-Results
-* Overview
-    * latencies for channel establishment and user data exchange
-* utilities for deeper insight
-    * user data exchange split into symmetric cipher and hashing algorithm
-    * detailed view of time protocol steps take, in chronological order
-    * overview of how much time different types of operation take in protocol steps
 
 --
 
@@ -294,34 +267,15 @@ Note:
 
 --
 
-Winners
-<table>
-<tr>
-<td>read</td><td>write</td><td>handshake initiator</td><td>handshake responder</td>
-</tr>
-<tr>
-<td>69.92us</td><td>67.36us</td><td>1159.84us</td><td>1265.88us</td>
-</tr>
-<tr>
-<td>RC4-128-MD5</td><td>RC4-128-MD5</td><td>PSK-WITH</td><td>PSK-WITH</td>
-</tr>
-</table>
-
-Note:
-* CS fixed set, no overall winner
-
---
-
 Recommendation
 * read/write: AES-128-CBC (AES-128-GCM if AES hardware accelerated)
-* handshake initiation: PSK (if infrastructure available), RSA 
-* handshake responder: PSK (if infrastructure available), RSA
+* handshake: PSK (if infrastructure available), RSA
 * avoid 3DES and DH(E)
 * reasonable choice: TLS-RSA-WITH-AES-128-GCM
 
 --
 
-Showing the single protocol step of a handshake for a single cipher suite
+# The toolbox
 
 --
 
@@ -352,36 +306,15 @@ Note:
 
 --
 
-<img src="images/groupby_COMPLETE_HANDSHAKE_Board_inc_io_147.svg"/>
-Note:
-* for reference, how much time is spent in I/O?
-* I/O: TLS, I/O logs: transportation of logs
-* really makes sense to exclude I/O time
+.. and many more
 
 --
 
-Share of bulk cipher and hash algorithm in user data exchange
+# Evaluation
 
 --
 
-<img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_hash.svg"/>
-Note:
-* idea: HW acceleration for symmetric cipher available
-* cipher hence "fixed" for maximum performance. Which hash algo to use then?
-* median time, based on 10x1000 read/write operations of 1KByte each
-* GCM/CCM at 0 because MAC in cipher mode integrated
-* SHA256 reasonable choice
-
---
-
-<img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_sym.svg"/>
-Note:
-* for reference, also coloured by symmetric cipher
-
---
-
-performance impact
-* measured on two levels
+Performance impact
 * micro: run two crypto functions (slow, fast) with different forms of logging
 * macro: compare the runtime of an instrumented version of mbed TLS with an instrumented
 
@@ -415,24 +348,19 @@ micro
 
 --
 
-macro
-* instrumentation still takes place in bench process
-* no deeper insight possible (IO ?)
-* compare handshake and read and write latency
-* however: time used to transmit logs captured
-
---
-
-overhead, pc as server, board side
+Added overhead to handshake latency (Board perspective)
 <img src="images/global_difference_write_latencies_by_keyxchg_PC_AS_SERVER.svg"/>
 Note:
+* instrumentation in driver
+* time to transmit logs captured in both cases
 * y-axis: relation of median handshake latency of 1000 runs between instrumented/uninstrumented mbed TLS 
 * x-axis: relation of median user data exchange latency of 10000 runs between instrumented/uninstrumented mbed TLS
 * also colored by symmetric
+* PSK most affected, DHE not (fits to the other results)
 
 --
 
-overhead sym, pc as server, pc side
+Added overhead to user data exchange latency (PC perspective)
 <img src="images/global_difference_read_latencies_by_sym_PC_AS_SERVER.svg"/>
 Note:
 * average of all data points is slightly below 1
@@ -440,15 +368,7 @@ Note:
 
 --
 
-portability and flexibility:
-* benchmark code written in C, very little outer dependencies
-* other clock functions may be used
-* theoretically also other metrics, e.g. energy consumption
-* requirements on metric function: monotonic rising
-
---
-
-constraints:
+Requirements / Constraints:
 * certain dependencies on target environment: POSIX, ethernet
 * noise by OS (scheduling!) included
 
@@ -462,6 +382,9 @@ candidates for measuring execution time
 * cycle count <!-- .element: class="fragment" data-fragment-index="1" -->
 * process/thread clock<!-- .element: class="fragment" data-fragment-index="2" -->
 * (wall) clock<!-- .element: class="fragment" data-fragment-index="3" -->
+
+Note:
+* RDTSC (read time stamp)
 
 --
 
@@ -488,9 +411,17 @@ Note:
 --
 
 future work:
-* stream ciphers
-* TLS extensions (session caching)
+* porting to actual embedded platforms
+* stream ciphers 
+* TLS extensions 
 * DTLS
+* further variation of parameters
+
+Note:
+* ChaCha20, Poly1305 
+* session caching
+* UDP
+* different packet sizes
 
 --
 
