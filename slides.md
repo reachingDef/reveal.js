@@ -13,7 +13,7 @@ Motivation
 * resource constrained devices<!-- .element: class="fragment" data-fragment-index="1" -->
 * connected to each other<!-- .element: class="fragment" data-fragment-index="1" -->
 * real time requirements<!-- .element: class="fragment" data-fragment-index="1" -->
-* How can we protect sensitive data?   <!-- .element: class="fragment" data-fragment-index="2" -->
+* How can we protect sensitive communication?   <!-- .element: class="fragment" data-fragment-index="2" -->
 
 --
 
@@ -29,18 +29,6 @@ Hypothesis: TLS is suited for the protection of low-resource realtime systems
 
 --
 
-Why (not) TLS?
-*  well known protocol
-*  many implementations
-*  considered to be slow <!-- .element: class="fragment" data-fragment-index="1" -->
-*  and resource hungry <!-- .element: class="fragment" data-fragment-index="1" -->
-Note:
-* SSL2.0: 1995
-* TLS 1.0: 1999
-* TLS 1.2: 2008
-
---
-
 Verification in two steps:
 1. development of a test bench <!-- .element: class="fragment" data-fragment-index="1" -->
 2. evaluation of TLS on selected target platforms <!-- .element: class="fragment" data-fragment-index="2" -->
@@ -51,7 +39,7 @@ Note:
 
 --
 
-Brief background on TLS
+# Brief background on TLS
 
 --
 
@@ -111,12 +99,11 @@ How to instrument?
 Solution: home brew instrumentation
 * small library linked to target code
 * manual insertion of log points into the code
-* relies on clock_gettime call
+* label, time stamp and (optional) payload
 
 --
 
 API
-* label, time stamp and (optional) payload
 * embracing log points form a log block
 * Usage 
         int my_function(...) {
@@ -132,13 +119,7 @@ API
 
 Note:
 * nested logs possible (and heavily used)
-
---
-
-Log trees
-<img src="images/entries_to_tree.png"/>
-* nested log points form a log tree
-* similar to matching many different parenthesises
+* time stamps with clock_gettime
 
 --
 
@@ -154,16 +135,15 @@ Meta vs Primitive blocks
 * <b>Meta</b>: large procedure <br/>
 (mbedtls_ssl_handshake) 
 * <b>Primitive</b>: discrete algorithm 
-(mbedtls_aes_setkey_dec) 
-* relation used to judge preciseness of instrumentation (coverage) <!-- .element: class="fragment" data-fragment-index="3" -->
+(mbedtls_aes_encrypt) 
+* ratio used to judge preciseness of instrumentation (coverage) <!-- .element: class="fragment" data-fragment-index="3" -->
 
 --
 
 What to instrument?
 * cover protocol step functions
-* cover the whole crypto API
-* idea: most time is spent in (a)symmetric crypto operations
-* knowledge of protocol step sufficient, no general need for further insight
+* cover the whole cryptographic API
+* idea: most time is spent in cryptographic operations (high coverage!)
 
 Note:
 * mbed TLS comes with a built-in benchmark tool that measures raw crypto performance
@@ -188,17 +168,14 @@ Note:
 
 Note:
 * controller assigns server /client roles
+* CLI_INS_HANDSHAKE has parameter to enforce cipher suite
 * for each cipher suite
     * client initiates handshake with server
     * after channel establishment, client sends packets to server
     * instrumented data is sent to the controller
 * controller switches server / client roles
 * repeat 
-* CLI_INS_HANDSHAKE has parameter to enforce cipher suite
-
---
-
-<img height="600"; width="auto"; src="images/ProtoBufferFull.png"/>
+* if buffer full prematurely, then peer can indicate so to the controller
 
 --
 
@@ -287,6 +264,7 @@ Note:
 
 Performance impact
 * compare the runtime of an instrumented version of mbed TLS with an uninstrumented version
+* ratio of "uninstrumented latency" to "instrumented latency"
 
 --
 
@@ -302,25 +280,7 @@ Note:
 
 --
 
-Added overhead to user data exchange latency (PC perspective)
-<img src="images/global_difference_read_latencies_by_sym_PC_AS_SERVER.svg"/>
-Note:
-* average of all data points is slightly below 1
-* noise indicates that logging has hardly impact on fast machines 
-
---
-
-Requirements / Constraints:
-* certain dependencies on target environment: POSIX, ethernet
-* noise by OS (scheduling!) included
-
---
-
-A word on metric functions..
-
---
-
-candidates for measuring execution time
+Candidates for time measurement
 * cycle count <!-- .element: class="fragment" data-fragment-index="1" -->
 * process/thread clock<!-- .element: class="fragment" data-fragment-index="2" -->
 * (wall) clock<!-- .element: class="fragment" data-fragment-index="3" -->
@@ -368,3 +328,257 @@ Note:
 --
 
 # Questions?
+
+--
+
+--
+
+log storage
+* SQLite (very homogenous data)
+* split into multiple database files (performance)
+* directory structure: <exp-ID>/<exp-type>/<Board or pc as server>/<cs-id>/<Pc or board>.ins
+* ins for instrumentation
+
+--
+
+* dump list of all supported cipher suites by this built of mbed into file 
+* reasons: explicit knowledge on current CS, builts for very constrained platforms may be stripped
+* would have to do several builds and runs to test all CS
+
+--
+
+builder.py
+* generates header for configuration and log labels
+* builds mbed TLS and bench
+
+--
+
+Logging labels
+* translated before compile time 
+* combination of identifier and type
+* type can either be primitive or compound ("meta")
+* example: 
+        PERFORM_BENCHMARK,META
+becomes
+
+        enum logging_label {
+            PERFORM_BENCHMARK_START = 0;
+            PERFORM_BENCHMARK_STOP = 1;
+        }
+
+Note:
+* typically with _START and _STOP suffixes
+* depending on identifier, actual labels are generated
+* additional features possible (e.g. for use during analysis)
+* Data structures
+* logging_context
+* logging_entry
+* payload
+* field for additional information
+* could be used for arbitrary types or information
+* example: energy consumption value
+
+--
+
+A closer look on latency (types)
+
+--
+
+<img height="350"; width="auto"; src="images/write_latency_expl.svg"/>
+* latency 1 = L2 − L1 − IO <!-- .element: class="fragment" data-fragment-index="1" -->
+* latency 2 = L3 − L1 − IO <!-- .element: class="fragment" data-fragment-index="1" -->
+* latency 3 = L3 − L1 <!-- .element: class="fragment" data-fragment-index="1" -->
+
+Note:
+* mbedtls_ssl_write function
+* no knowledge beforehands where something TLS related is done and where I/O is involved
+* latency: extra time spent in TLS layer
+* question: from where to compute start / end?
+* differentiate by: include post-processing? include IO?
+
+--
+
+<img height="350"; width="auto"; src="images/read_latency_expl.svg"/>
+* latency 1' = L3' − L1' − IO<!-- .element: class="fragment" data-fragment-index="1" -->
+* latency 2' = L3' − L2' − IO<!-- .element: class="fragment" data-fragment-index="1" -->
+* latency 3' = L3' − L1'<!-- .element: class="fragment" data-fragment-index="1" -->
+
+Note:
+* differentiate by: include tls pre-processing, include IO?
+
+--
+
+<img src="images/5-Board_rw_dens.svg"/>
+
+--
+
+<img src="images/5-Board_rw_hist.svg"/>
+
+--
+
+experiment 
+* controller sends current CS to client
+* (number of iterations, total payload size, size of a single packet)
+* here (1000, 10000, 1000)
+* since TLS asymmetric protocol: roles change
+
+Note:
+* read: each cipher suite was measured 1000 times. During each iteration,
+a total of 10000 bytes was exchanged, where each packet was 1000 byte large
+
+--
+
+Internally
+* client initiates and proceeds handshake 10 times
+* after each channel establishment, 10x 1KB dummy payload is sent from client to server
+* repeat after all cipher suites were used
+* then start again (total: 100 iterations)
+* reason: whole experiment for single CS takes very long. By splitting up,
+already measured logs can be processed. Also, an "open end" scenario is thinkable
+
+--
+
+Text dump of the log tree
+
+        [Start] CIPHER_SPEC - PROTO_STEP - stamp=75086081472920
+            [Start] REC_SEND_IO - IO - stamp=75086081478182
+            [Stop] REC_SEND_IO - IO - stamp=75086081480769 - duration=2.587
+        [Stop] CIPHER_SPEC - PROTO_STEP - stamp=75086081482771 - duration=9.851
+
+--
+
+structure of mbed
+* gained insight into library via callgrind (and KCachegrind)
+* split into three libraries: crypto, tls, x509
+* TLS protocols steps each have their own function 
+* user provides network I/O callbacks <!-- .element: class="fragment" data-fragment-index="1" -->
+
+Note:
+* callback: we're able to exclude time spent in kernel for I/O
+
+--
+
+Winners
+<table>
+<tr>
+<td>read</td><td>write</td><td>handshake initiator</td><td>handshake responder</td>
+</tr>
+<tr>
+<td>69.92us</td><td>67.36us</td><td>1159.84us</td><td>1265.88us</td>
+</tr>
+<tr>
+<td>RC4-128-MD5</td><td>RC4-128-MD5</td><td>PSK-WITH</td><td>PSK-WITH</td>
+</tr>
+</table>
+
+Note:
+* CS fixed set, no overall winner
+
+--
+
+Share of bulk cipher and hash algorithm in user data exchange
+
+--
+
+<img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_hash.svg"/>
+Note:
+* idea: HW acceleration for symmetric cipher available
+* cipher hence "fixed" for maximum performance. Which hash algo to use then?
+* median time, based on 10x1000 read/write operations of 1KByte each
+* GCM/CCM at 0 because MAC in cipher mode integrated
+* SHA256 reasonable choice
+
+--
+
+<img src="images/global_groupby_DO_SSL_WRITE_Board_exc_io_by_sym.svg"/>
+Note:
+* for reference, also coloured by symmetric cipher
+
+--
+
+<img src="images/groupby_COMPLETE_HANDSHAKE_Board_inc_io_147.svg"/>
+Note:
+* for reference, how much time is spent in I/O?
+* I/O: TLS, I/O logs: transportation of logs
+* really makes sense to exclude I/O time
+
+--
+
+micro
+* mean of N=1000000 runs
+<table>
+<tr>
+    <td>Operation</td>
+    <td>Raw (ns)</td>
+    <td>Monotonic / Raw</td>
+    <td>Monotonic Coarse / Raw</td>
+</tr>
+<tr>
+    <td>SHA256</td>
+    <td>1266.5ns</td>
+    <td>1.114</td>
+    <td>1.090</td>
+</tr>
+<tr>
+    <td>3DES</td>
+    <td>8799.2ns</td>
+    <td>1.012</td>
+    <td>1.007</td>
+</tr>
+</table>
+
+Note:
+* different forms = no logging, logging with metric function, two different clock modes
+
+--
+
+Software architecture
+
+--
+
+Components of the test bench
+<img src="images/components.png"/>
+
+Note:
+* driver: runs the experiment code 
+* built by builder
+* controller: orchestrates the experiments
+
+--
+
+<img height="600"; width="auto"; src="images/ProtoInitial.png"/>
+Note:
+* controller assigns server / client roles 
+
+--
+
+<img height="600"; width="auto"; src="images/ProtoBufferFull.png"/>
+
+--
+
+Log trees
+<img src="images/entries_to_tree.png"/>
+* nested log points form a log tree
+* similar to matching many different parenthesises
+
+--
+
+Why (not) TLS?
+*  well known protocol
+*  many implementations
+*  considered to be slow <!-- .element: class="fragment" data-fragment-index="1" -->
+*  and resource hungry <!-- .element: class="fragment" data-fragment-index="1" -->
+Note:
+* SSL2.0: 1995
+* TLS 1.0: 1999
+* TLS 1.2: 2008
+
+--
+
+Added overhead to user data exchange latency (PC perspective)
+<img src="images/global_difference_read_latencies_by_sym_PC_AS_SERVER.svg"/>
+Note:
+* average of all data points is slightly below 1
+* noise indicates that logging has hardly impact on fast machines 
+
+
